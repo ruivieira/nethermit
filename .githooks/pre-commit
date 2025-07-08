@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+
+# Exit on error
+set -e
+
+echo "Running pre-commit checks..."
+
+# Check if rustfmt and clippy are installed
+if ! command -v rustfmt >/dev/null 2>&1; then
+    echo "Installing rustfmt..."
+    rustup component add rustfmt
+fi
+
+if ! command -v clippy >/dev/null 2>&1; then
+    echo "Installing clippy..."
+    rustup component add clippy
+fi
+
+# Run format check
+echo "Checking formatting..."
+cargo fmt --all -- --check
+
+# Run clippy
+echo "Running clippy..."
+cargo clippy -- -D warnings
+
+# Run build
+echo "Building project..."
+cargo build --verbose
+
+# Run tests
+echo "Running tests..."
+cargo test --verbose
+
+echo "All checks passed!" 

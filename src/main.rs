@@ -16,7 +16,14 @@ fn process_jsonnet_file(path: &PathBuf) -> Result<String> {
     let content = fs::read_to_string(path)
         .with_context(|| format!("Failed to read file: {}", path.display()))?;
 
-    nethermit::jsonnet_to_yaml(&content, path.to_string_lossy().as_ref())
+    // Add the parent directory of the input file to the import paths
+    let import_paths = if let Some(parent) = path.parent() {
+        vec![parent.to_path_buf()]
+    } else {
+        vec![]
+    };
+
+    nethermit::jsonnet_to_yaml(&content, &import_paths)
 }
 
 fn process_stdin() -> Result<String> {
@@ -25,7 +32,9 @@ fn process_stdin() -> Result<String> {
         .read_to_string(&mut buffer)
         .context("Failed to read from stdin")?;
 
-    nethermit::jsonnet_to_yaml(&buffer, "<stdin>")
+    // When reading from stdin, use current directory for imports
+    let import_paths = vec![PathBuf::from(".")];
+    nethermit::jsonnet_to_yaml(&buffer, &import_paths)
 }
 
 fn main() -> Result<()> {

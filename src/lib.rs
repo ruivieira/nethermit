@@ -1,23 +1,41 @@
 use anyhow::{Context, Result};
 use jsonnet::JsonnetVm;
 use serde_json::Value;
+use std::path::PathBuf;
 
-/// Convert Jsonnet content to YAML
-pub fn jsonnet_to_yaml(content: &str, filename: &str) -> Result<String> {
+/// Convert Jsonnet content to YAML with optional import paths
+pub fn jsonnet_to_yaml(content: &str, import_paths: &[PathBuf]) -> Result<String> {
     let mut vm = JsonnetVm::new();
 
     // Configure VM settings
     vm.max_stack(100);
     vm.max_trace(Some(100));
 
+    // Add import paths
+    for path in import_paths {
+        vm.jpath_add(path.to_string_lossy().as_ref());
+    }
+
     // Evaluate Jsonnet content
     let json = vm
-        .evaluate_snippet(filename, content)
+        .evaluate_snippet("snippet", content)
         .map_err(|e| anyhow::anyhow!("Failed to evaluate Jsonnet: {}", e))?;
 
-    // Parse JSON and convert to YAML
+    // Parse JSON
     let value: Value = serde_json::from_str(&json).context("Failed to parse JSON")?;
-    let yaml = serde_yaml::to_string(&value).context("Failed to convert to YAML")?;
+
+    // Handle array of resources or single resource
+    let yaml = match value {
+        Value::Array(resources) => {
+            // Convert each resource to YAML and join with separator
+            resources
+                .into_iter()
+                .map(|r| serde_yaml::to_string(&r).context("Failed to convert to YAML"))
+                .collect::<Result<Vec<_>>>()?
+                .join("\n---\n")
+        }
+        _ => serde_yaml::to_string(&value).context("Failed to convert to YAML")?,
+    };
 
     Ok(yaml)
 }
@@ -27,11 +45,16 @@ mod tests {
     use super::*;
     use std::env;
     use std::fs;
-    use std::path::{Path, PathBuf};
+    use std::path::Path;
 
     fn examples_dir() -> PathBuf {
         let manifest_dir = env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR not set");
         Path::new(&manifest_dir).join("examples")
+    }
+
+    fn tests_dir() -> PathBuf {
+        let manifest_dir = env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR not set");
+        Path::new(&manifest_dir).join("tests")
     }
 
     fn read_example(name: &str) -> String {
@@ -41,23 +64,7 @@ mod tests {
 
     fn evaluate_example(name: &str) -> Result<String> {
         let content = read_example(name);
-        let mut vm = JsonnetVm::new();
-
-        // Set up import callback to handle relative paths from examples directory
-        let examples = examples_dir();
-        vm.jpath_add(examples.to_string_lossy().as_ref());
-
-        vm.max_stack(100);
-        vm.max_trace(Some(100));
-
-        let json = vm
-            .evaluate_snippet(name, &content)
-            .map_err(|e| anyhow::anyhow!("Failed to evaluate Jsonnet: {}", e))?;
-
-        let value: Value = serde_json::from_str(&json).context("Failed to parse JSON")?;
-        let yaml = serde_yaml::to_string(&value).context("Failed to convert to YAML")?;
-
-        Ok(yaml)
+        jsonnet_to_yaml(&content, &[examples_dir()])
     }
 
     #[test]
@@ -96,7 +103,46 @@ mod tests {
                 invalid: 'jsonnet,
             }
         "#;
-        let result = jsonnet_to_yaml(content, "test.jsonnet");
+        let result = jsonnet_to_yaml(content, &[]);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_multiple_resources() {
+        let content = r#"
+        [
+            {
+                apiVersion: "v1",
+                kind: "Service",
+                metadata: {
+                    name: "test-service"
+                }
+            },
+            {
+                apiVersion: "apps/v1",
+                kind: "Deployment",
+                metadata: {
+                    name: "test-deployment"
+                }
+            }
+        ]
+        "#;
+        let result = jsonnet_to_yaml(content, &[]).unwrap();
+        assert!(result.contains("---"));
+        assert!(result.contains("kind: Service"));
+        assert!(result.contains("kind: Deployment"));
+    }
+
+    #[test]
+    fn test_dsc_config() {
+        let content = fs::read_to_string(tests_dir().join("example-config.jsonnet"))
+            .expect("Failed to read example config");
+        let result = jsonnet_to_yaml(&content, &[tests_dir()]).unwrap();
+
+        // Should contain both resources
+        assert!(result.contains("kind: DSCInitialization"));
+        assert!(result.contains("kind: DataScienceCluster"));
+        // Should be separated by ---
+        assert!(result.contains("\n---\n"));
     }
 }

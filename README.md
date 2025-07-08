@@ -1,5 +1,7 @@
 # Nethermit
 
+[![Rust CI](https://github.com/ruivieira/nethermit/actions/workflows/rust.yml/badge.svg)](https://github.com/ruivieira/nethermit/actions/workflows/rust.yml)
+
 A simple CLI tool to convert Jsonnet files to YAML.
 
 ## Installation
@@ -35,6 +37,22 @@ nethermit
 - Accepts input from files or stdin
 - Outputs to stdout for easy piping
 
-## Requirements
+## Development
+
+### Pre-commit Hooks
+
+This project uses Git pre-commit hooks to ensure code quality. The hooks run:
+- Code formatting checks (`cargo fmt`)
+- Linting (`cargo clippy`)
+- Build verification
+- Unit tests
+
+The hooks are automatically installed when you clone the repository. If you need to install them manually:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+### Requirements
 
 - Rust 1.70 or later
