@@ -1,0 +1,38 @@
+stages:
+  - test
+  - publish
+
+variables:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: full
+
+# ✅ Test job (runs on push and merge requests to main)
+test:
+  stage: test
+  image: rust:latest
+  only:
+    refs:
+      - main
+      - merge_requests
+  script:
+    - rustup component add rustfmt clippy
+    - cargo fmt --all -- --check
+    - cargo clippy -- -D warnings
+    - cargo build --verbose
+    - cargo test --verbose
+  cache:
+    key: ${CI_COMMIT_REF_SLUG}
+    paths:
+      - target/
+      - ~/.cargo/registry/
+      - ~/.cargo/git/
+
+# ✅ Publish job (runs on version tags)
+publish:
+  stage: publish
+  image: rust:latest
+  only:
+    tags:
+      - /^v\d+\.\d+\.\d+.*$/
+  script:
+    - cargo publish --token $CRATES_IO_TOKEN
