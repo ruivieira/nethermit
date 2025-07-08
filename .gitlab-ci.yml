@@ -31,8 +31,9 @@ test:
 publish:
   stage: publish
   image: rust:latest
-  only:
-    tags:
-      - /^v\d+\.\d+\.\d+.*$/
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+.*$/'
+      when: always
+    - when: never
   script:
     - cargo publish --token $CRATES_IO_TOKEN
