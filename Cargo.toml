@@ -1,17 +1,17 @@
 [package]
 name = "nethermit"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 description = "A CLI tool to convert Jsonnet to YAML"
 authors = ["Rui Vieira <ruidevieira@googlemail.com>"]
 license = "Apache-2.0"
-repository = "https://gitlab.com/ruivieira/nethermit"
+repository = "https://github.com/ruivieira/nethermit"
 readme = "README.md"
 keywords = ["jsonnet", "yaml", "cli", "converter"]
 categories = ["command-line-utilities", "development-tools"]
 
 [package.metadata.publish]
-allow = ["gitlab:ruivieira/nethermit"]
+allow = ["github:ruivieira/nethermit"]
 
 
 [[bin]]
