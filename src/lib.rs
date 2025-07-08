@@ -52,11 +52,6 @@ mod tests {
         Path::new(&manifest_dir).join("examples")
     }
 
-    fn tests_dir() -> PathBuf {
-        let manifest_dir = env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR not set");
-        Path::new(&manifest_dir).join("tests")
-    }
-
     fn read_example(name: &str) -> String {
         let path = examples_dir().join(name);
         fs::read_to_string(path).expect("Failed to read example file")
@@ -134,15 +129,24 @@ mod tests {
     }
 
     #[test]
-    fn test_dsc_config() {
-        let content = fs::read_to_string(tests_dir().join("example-config.jsonnet"))
-            .expect("Failed to read example config");
-        let result = jsonnet_to_yaml(&content, &[tests_dir()]).unwrap();
+    fn test_multi_document() {
+        let result = evaluate_example("multi.jsonnet").unwrap();
 
-        // Should contain both resources
-        assert!(result.contains("kind: DSCInitialization"));
-        assert!(result.contains("kind: DataScienceCluster"));
+        // Should contain all three documents
+        assert!(result.contains("type: profiles"));
+        assert!(result.contains("type: settings"));
+        assert!(result.contains("type: features"));
+
         // Should be separated by ---
-        assert!(result.contains("\n---\n"));
+        let separator_count = result.matches("---").count();
+        assert_eq!(
+            separator_count, 2,
+            "Should have 2 separators for 3 documents"
+        );
+
+        // Should contain nested data
+        assert!(result.contains("name: Alice"));
+        assert!(result.contains("host: localhost"));
+        assert!(result.contains("samplingRate: 0.1"));
     }
 }
